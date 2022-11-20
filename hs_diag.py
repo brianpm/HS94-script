@@ -153,13 +153,17 @@ if __name__ == "__main__":
         plev = construct_plev(ds.dims[levname])
         pres = approx_pres(ds.rho, ds.T)
         # MetPy interpolation (slow)
+        print("interpolate T")
         T = log_interpolate_1d(plev, pres, ds.T, axis=1)
+        print("interpolate U")
         U = log_interpolate_1d(plev, pres, ds.T, axis=1)
+        print("interpolate V")
         V = log_interpolate_1d(plev, pres, ds.V, axis=1)
         # I don't understand the MetPy object, revert to xarray:
-        T = convert_to_xr(T.m, ds.T, 'lev', plev)
-        U = convert_to_xr(U.m, ds.U, 'lev', plev)
-        V = convert_to_xr(V.m, ds.V, 'lev', plev)
+        if (not isinstance(T, np.ndarray)) and (not isinstance(T, xr.DataArray)):
+            T = convert_to_xr(T.m, ds.T, 'lev', plev)
+            U = convert_to_xr(U.m, ds.U, 'lev', plev)
+            V = convert_to_xr(V.m, ds.V, 'lev', plev)
 
     # Specify the time indices to use:
     #
