@@ -186,14 +186,14 @@ if __name__ == "__main__":
 
     # Calculations (assumes xarray used for I/O)
     #
-    umean = U.mean(dim=("time","lon"))
+    umean = U.mean(dim=("time",lonname))
     vptpclim = calc_xpyp(V, T)
     vptpclim = vptpclim.assign_attrs(long_name="Northward eddy heat flux", units="K m s$^{-1}$")
     upvpclim = calc_xpyp(U, V)
     upvpclim = vptpclim.assign_attrs(long_name="Northward eddy momentum flux", units="m$^2$ s$^{-2}$")
     tptpclim = calc_xpyp(T)
     tptpclim = tptpclim.assign_attrs(long_name="Eddy temperature variance", untis="K$^{2}$")
-
+    # TODO: add option to dump these to a file.
     # make the multi-panel figure
     #
     fig, ax = plt.subplots(figsize=(9,9), ncols=2, nrows=2, constrained_layout=True)
