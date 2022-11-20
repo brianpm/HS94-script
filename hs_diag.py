@@ -24,7 +24,6 @@ def calc_xpyp(x, y=None):
               IF lon is not in x or y: ASSUME IT IS A DEVIATION ALREADY.
     Singleton dimensions are "squeezed".
     """
-    # use ternary operator for one-line conditionals
     xprime = x - x.mean(dim="lon").squeeze() if "lon" in x.dims else x
     if y is None:
         y = x
@@ -126,7 +125,7 @@ def convert_to_xr(mpver, orig, intrpdim, intrpcoord):
 
 if __name__ == "__main__":
     interp_to_pressure = True  # whether to try to interpolate to pressure levels
-    time_sample = False
+    time_sample = False  # TODO: allow specied temporal sampling
     save_plot = True
     latname = "latitude"
     lonname = "longitude"
@@ -161,15 +160,7 @@ if __name__ == "__main__":
         from dask.array.core import map_blocks
         print("interpolate T")
         # T = log_interpolate_1d(plev, pres, ds.T, axis=1)
-        T = map_blocks(log_interpolate_1d, 
-                            plev, 
-                            pres, 
-                            ds.T, 
-                            dtype=ds.T.dtype,         
-                            axis=interp_axis
-        ).compute()
-        print(T)    
-
+        T = map_blocks(log_interpolate_1d, plev, pres, ds.T, dtype=ds.T.dtype, axis=interp_axis).compute()
         print("interpolate U")
         # U = log_interpolate_1d(plev, pres, ds.T, axis=1)
         U = map_blocks(log_interpolate_1d, plev, pres, ds.U, dtype=ds.U.dtype, axis=interp_axis).compute()
@@ -181,13 +172,17 @@ if __name__ == "__main__":
             T = convert_to_xr(T.m, ds.T, 'lev', plev)
             U = convert_to_xr(U.m, ds.U, 'lev', plev)
             V = convert_to_xr(V.m, ds.V, 'lev', plev)
+    else:
+        T = ds.T
+        U = ds.U
+        V = ds.V
 
     # Specify the time indices to use:
     #
     if time_sample:
         raise NotImplementedError("I have not gotten to the time sampling part.")
     else:
-        print(f"The time sampling assumed to be 4/day, there are {len(T[timname])} time samples in the data.")
+        print(f"The time sampling assumed to be 4/day, there are {len(T['time'])} time samples in the data.")
 
     # Calculations (assumes xarray used for I/O)
     #
