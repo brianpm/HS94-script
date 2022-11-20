@@ -138,7 +138,7 @@ if __name__ == "__main__":
     # Data loading and workflow (could make this CLI w/ argparse)
     
     hpath = Path("/glade/scratch/gdicker/val.FHS94.mpasa120.che.gnu/run/convertedOutputs_latlon")
-    hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002*"))
+    hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002-06*"))
 
     # note: using combine/concat_dim wouldn't usually be necessary if the time coordinate were correct.
     ds = xr.open_mfdataset(hfils, combine='nested', concat_dim=timname).load()
