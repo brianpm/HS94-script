@@ -137,10 +137,10 @@ if __name__ == "__main__":
     # Data loading and workflow (could make this CLI w/ argparse)
     
     hpath = Path("/glade/scratch/gdicker/val.FHS94.mpasa120.che.gnu/run/convertedOutputs_latlon")
-    hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002-06*"))
+    hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002*"))
 
     # note: using combine/concat_dim wouldn't usually be necessary if the time coordinate were correct.
-    ds = xr.open_mfdataset(hfils, combine='nested', concat_dim=timname)
+    ds = xr.open_mfdataset(hfils[0], combine='nested', concat_dim=timname)
     print("ds loaded (probably via dask)")
 
     # If there's not a proper time coordinate, make one:
@@ -193,6 +193,9 @@ if __name__ == "__main__":
     upvpclim = vptpclim.assign_attrs(long_name="Northward eddy momentum flux", units="m$^2$ s$^{-2}$")
     tptpclim = calc_xpyp(T)
     tptpclim = tptpclim.assign_attrs(long_name="Eddy temperature variance", untis="K$^{2}$")
+
+    print(tptpclim)
+    
     # TODO: add option to dump these to a file.
     # make the multi-panel figure
     #
