@@ -148,13 +148,27 @@ if __name__ == "__main__":
         print("Need to construct a time coordinate; will start at beginning of Year 0001")
         cft=xr.cftime_range(start="0001", periods=ds.dims[timname], freq=f"{samples_per_day}H", calendar="365_day")
         ds = ds.assign_coords({timname:cft})
+    if timname != "time":
+        ds = ds.rename({timname:"time"})
+        print(f"renamed {timname} to time to avoid breaking xarray assumptions")
     
     if interp_to_pressure:
+        interp_axis = ds.T.dims.index(levname)
         plev = construct_plev(ds.dims[levname])
         pres = approx_pres(ds.rho, ds.T)
         # MetPy interpolation (slow)
+        from dask.array.core import map_blocks
         print("interpolate T")
-        T = log_interpolate_1d(plev, pres, ds.T, axis=1)
+        # T = log_interpolate_1d(plev, pres, ds.T, axis=1)
+        T = map_blocks(log_interpolate_1d, 
+                            plev, 
+                            pres, 
+                            ds.T, 
+                            dtype=ds.T.dtype,         
+                            axis=interp_axis
+        )
+        print(T)    
+
         print("interpolate U")
         U = log_interpolate_1d(plev, pres, ds.T, axis=1)
         print("interpolate V")
