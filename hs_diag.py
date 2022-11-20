@@ -141,7 +141,8 @@ if __name__ == "__main__":
     hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002-06*"))
 
     # note: using combine/concat_dim wouldn't usually be necessary if the time coordinate were correct.
-    ds = xr.open_mfdataset(hfils, combine='nested', concat_dim=timname).load()
+    ds = xr.open_mfdataset(hfils, combine='nested', concat_dim=timname)
+    print("ds loaded (probably via dask)")
 
     # If there's not a proper time coordinate, make one:
     if timname not in ds.coords:
@@ -166,13 +167,15 @@ if __name__ == "__main__":
                             ds.T, 
                             dtype=ds.T.dtype,         
                             axis=interp_axis
-        )
+        ).compute()
         print(T)    
 
         print("interpolate U")
-        U = log_interpolate_1d(plev, pres, ds.T, axis=1)
+        # U = log_interpolate_1d(plev, pres, ds.T, axis=1)
+        U = map_blocks(log_interpolate_1d, plev, pres, ds.U, dtype=ds.U.dtype, axis=interp_axis).compute()
         print("interpolate V")
-        V = log_interpolate_1d(plev, pres, ds.V, axis=1)
+        # V = log_interpolate_1d(plev, pres, ds.V, axis=1)
+        V = map_blocks(log_interpolate_1d, plev, pres, ds.V, dtype=ds.V.dtype, axis=interp_axis).compute()
         # I don't understand the MetPy object, revert to xarray:
         if (not isinstance(T, np.ndarray)) and (not isinstance(T, xr.DataArray)):
             T = convert_to_xr(T.m, ds.T, 'lev', plev)
