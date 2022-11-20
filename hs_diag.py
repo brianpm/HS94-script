@@ -141,7 +141,7 @@ if __name__ == "__main__":
     hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002*"))
 
     # note: using combine/concat_dim wouldn't usually be necessary if the time coordinate were correct.
-    ds = xr.open_mfdataset(hfils, combine='nested', concat_dim=timname)
+    ds = xr.open_mfdataset(hfils, combine='nested', concat_dim=timname).load()
 
     # If there's not a proper time coordinate, make one:
     if timname not in ds.coords:
