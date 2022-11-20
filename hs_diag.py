@@ -121,7 +121,7 @@ def convert_to_xr(mpver, orig, intrpdim, intrpcoord):
     fshape = mpver.shape
     oshape = orig.shape
     assert len(fshape) == len(oshape), f'Ranks are different, compare: {fshape} to {oshape}'
-    return xr.DataArray(mpver.m, dims=orig.dims, coords=ocoords, attrs=orig.attrs)
+    return xr.DataArray(mpver, dims=orig.dims, coords=ocoords, attrs=orig.attrs)
 
 
 if __name__ == "__main__":
