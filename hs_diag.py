@@ -124,6 +124,8 @@ def convert_to_xr(mpver, orig, intrpdim, intrpcoord):
 
 
 if __name__ == "__main__":
+
+    print("Entering code.")
     interp_to_pressure = True  # whether to try to interpolate to pressure levels
     time_sample = False  # TODO: allow specied temporal sampling
     save_plot = True
@@ -133,14 +135,17 @@ if __name__ == "__main__":
     timname = "Time"
     samples_per_day = 4 # if time were a coordinate variable, this could be discerned directly
     base_date = "0001-01-01"
+
+    print("Parameters set. Move to IO.")
     
     # Data loading and workflow (could make this CLI w/ argparse)
     
     hpath = Path("/glade/scratch/gdicker/val.FHS94.mpasa120.che.gnu/run/convertedOutputs_latlon")
     hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002*"))
-
+    print(f"Found a total of {len(hfils)} files... BUT ONLY GOING TO LOAD THE FIRST ONE!")
     # note: using combine/concat_dim wouldn't usually be necessary if the time coordinate were correct.
-    ds = xr.open_mfdataset(hfils[0], combine='nested', concat_dim=timname)
+    # ds = xr.open_mfdataset(hfils[0], combine='nested', concat_dim=timname).load()
+    ds = xr.open_dataset(hfils[0]).load()
     print("ds loaded (probably via dask)")
 
     # If there's not a proper time coordinate, make one:
