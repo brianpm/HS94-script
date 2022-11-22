@@ -12,7 +12,7 @@ from metpy.interpolate import log_interpolate_1d
 #   - construct_plev : makes the pressure grid to interpolate to
 #   - convert_to_xr : utility to get back to plain Xarray object
 #
-def calc_xpyp(x, y=None):
+def calc_xpyp(x, y=None, tname='time', lonname='lon'):
     """Calculate time mean, zonal mean covariance, <x'y'>.
     If y is not provided, calculate <x'x'>
 
@@ -24,15 +24,15 @@ def calc_xpyp(x, y=None):
               IF lon is not in x or y: ASSUME IT IS A DEVIATION ALREADY.
     Singleton dimensions are "squeezed".
     """
-    xprime = x - x.mean(dim="lon").squeeze() if "lon" in x.dims else x
+    xprime = x - x.mean(dim=lonname, keep_attrs=True).squeeze() if lonname in x.dims else x
     if y is None:
         y = x
         yprime = xprime
     else:
-        yprime = y - y.mean(dim="lon").squeeze() if "lon" in y.dims else y
+        yprime = y - y.mean(dim=lonname).squeeze() if lonname in y.dims else y
 
-    avgdim = [d for d in x.dims if d in ["time", "lon"]]
-    return (xprime * yprime).mean(dim=avgdim).squeeze()
+    avgdim = [d for d in x.dims if d in [tname, lonname]]
+    return (xprime * yprime).mean(dim=avgdim, keep_attrs=True).squeeze()
 
 
 def contour_zm(ax, data, ci, cmin, cmax, latname='lat', levname='lev'):
@@ -46,31 +46,36 @@ def contour_zm(ax, data, ci, cmin, cmax, latname='lat', levname='lev'):
     latname / lonname: strings to specify alterate dimension names
     """
     flevels = np.arange(cmin, cmax+ci, ci)
-    print(flevels)
     colormap = 'PuOr_r'
     cnorm = mpl.colors.TwoSlopeNorm(vmin=cmin, vcenter=0, vmax=cmax)
-    if isinstance(data, xr.DataArray):
-        print("Data is xarray")
+    if isinstance(data, xr.DataArray): 
         if (latname in data.coords) and (levname in data.coords):
-            mlev, mlat = np.meshgrid(ds.lat, ds.lev)
+            print("Identified lat and lev in data.")
+            mlat, mlev = np.meshgrid(data[latname], data[levname])
             levaxlabel = getattr(data[levname], 'long_name', 'lev')
             lataxlabel = getattr(data[latname], 'long_name', 'lat')
-            titleleft = getattr(data, 'long_name', '')
-            titleright = getattr(data, 'units', '')
+            data = data.transpose(levname,latname)
         else:
-            mlev, mlat = np.meshgrid(np.arange(data.shape[0], np.arange(data.shape[1])))
-            print("This would be better if data had coordinate variables")
-            levaxlabel = "lev"
-            lataxlabel = "lat"
+            print("Did not know which coordinates to use, will try our best.")
+            print(data.coords)
+            dims = data.dims
+            mlat, mlev = np.meshgrid(data[dims[1]], data[dims[0]])
+            levaxlabel = data.dims[0]
+            lataxlabel = data.dims[1]
             titleleft = ""
             titleright = ""
-    IMG = ax.contourf(mlev, mlat, data, cmap=colormap, levels=flevels, norm=cnorm)
-    CS = ax.contour(mlev, mlat, data, levels=flevels[::2], colors='k', linewidth=0.5)
+    else:
+        raise ValueError("plotting function really needs xarray DataArray to work ok.")
+    titleleft = getattr(data, 'long_name', '')
+    titleright = getattr(data, 'units', '')
+    IMG = ax.contourf(mlat, mlev, data, cmap=colormap, levels=flevels, norm=cnorm)
+    CS = ax.contour(mlat, mlev, data, levels=flevels[::2], colors='k', linewidth=0.5)
     ax.clabel(CS, fontsize=9, inline=1)
     ax.set_ylabel(levaxlabel)
     ax.set_xlabel(lataxlabel)
     ax.set_title(titleleft, loc='left')
     ax.set_title(titleright, loc='right')
+    ax.invert_yaxis()
     f = plt.gcf()
     f.colorbar(IMG, ax=ax, orientation='horizontal')
 
@@ -127,6 +132,7 @@ if __name__ == "__main__":
 
     print("Entering code.")
     interp_to_pressure = True  # whether to try to interpolate to pressure levels
+    interp_early = False  # if F: try to interpolate only at the very end (smaller interpolation calc)
     time_sample = False  # TODO: allow specied temporal sampling
     save_plot = True
     latname = "latitude"
@@ -140,8 +146,11 @@ if __name__ == "__main__":
     
     # Data loading and workflow (could make this CLI w/ argparse)
     
-    hpath = Path("/glade/scratch/gdicker/val.FHS94.mpasa120.che.gnu/run/convertedOutputs_latlon")
-    hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002*"))
+    # hpath = Path("/glade/scratch/gdicker/val.FHS94.mpasa120.che.gnu/run/convertedOutputs_latlon")
+    # hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002*"))
+
+    hfils = [Path("/Users/brianpm/Documents/model_output/mpasa_hs94/latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0001-01-01-00000.nc"),]
+
     print(f"Found a total of {len(hfils)} files... BUT ONLY GOING TO LOAD THE FIRST ONE!")
     # note: using combine/concat_dim wouldn't usually be necessary if the time coordinate were correct.
     # ds = xr.open_mfdataset(hfils[0], combine='nested', concat_dim=timname).load()
@@ -157,7 +166,7 @@ if __name__ == "__main__":
         ds = ds.rename({timname:"time"})
         print(f"renamed {timname} to time to avoid breaking xarray assumptions")
     
-    if interp_to_pressure:
+    if interp_to_pressure and interp_early:
         interp_axis = ds.T.dims.index(levname)
         plev = construct_plev(ds.dims[levname])
         pres = approx_pres(ds.rho, ds.T)
@@ -191,24 +200,58 @@ if __name__ == "__main__":
 
     # Calculations (assumes xarray used for I/O)
     #
-    umean = U.mean(dim=("time",lonname))
-    vptpclim = calc_xpyp(V, T)
+    umean = U.mean(dim=("time",lonname), keep_attrs=True)
+    vptpclim = calc_xpyp(V, T, lonname=lonname)
+    upvpclim = calc_xpyp(U, V, lonname=lonname)
+    tptpclim = calc_xpyp(T, lonname=lonname)
+
+    print(f"{umean.shape = }")
+    print(f"{vptpclim.shape = }")
+    print(f"{upvpclim.shape = }")
+    print(f"{tptpclim.shape = }")
+
+    if interp_to_pressure and not interp_early:
+        interp_axis = umean.dims.index(levname)
+        print(f"{interp_axis = }, nlev = {ds.dims[levname]}")  # have to go back to dataset, not use umean
+        plev = construct_plev(ds.dims[levname])
+        pres = approx_pres(ds.rho.mean(dim=('time', lonname)), ds.T.mean(dim=('time',lonname)))
+        tmpu, tmpvt, tmpuv, tmptt = log_interpolate_1d(plev, pres, umean, vptpclim, upvpclim, tptpclim, axis=interp_axis)
+        umean = tmpu
+        # tmp = log_interpolate_1d(plev, pres, vptpclim, dtype=vptpclim.dtype, axis=interp_axis).compute()
+        vptpclim = tmpvt
+        # tmp = log_interpolate_1d(plev, pres, upvpclim, dtype=upvpclim.dtype, axis=interp_axis).compute()
+        upvpclim = tmpuv
+        # tmp = log_interpolate_1d(plev, pres, tptpclim, dtype=tptpclim.dtype, axis=interp_axis).compute()
+        tptpclim = tmptt
+        if (not isinstance(umean, np.ndarray)) and (not isinstance(umean, xr.DataArray)):
+            umean = xr.DataArray(umean.m, dims=['lev',latname], coords={'lev':plev, latname:ds[latname]})
+            vptpclim = xr.DataArray(vptpclim.m, dims=['lev',latname], coords={'lev':plev, latname:ds[latname]})
+            upvpclim = xr.DataArray(upvpclim.m, dims=['lev',latname], coords={'lev':plev, latname:ds[latname]})
+            tptpclim = xr.DataArray(tptpclim.m, dims=['lev',latname], coords={'lev':plev, latname:ds[latname]})
+
+    umean = umean.assign_attrs(long_name="Mean zonal wind")
     vptpclim = vptpclim.assign_attrs(long_name="Northward eddy heat flux", units="K m s$^{-1}$")
-    upvpclim = calc_xpyp(U, V)
     upvpclim = vptpclim.assign_attrs(long_name="Northward eddy momentum flux", units="m$^2$ s$^{-2}$")
-    tptpclim = calc_xpyp(T)
     tptpclim = tptpclim.assign_attrs(long_name="Eddy temperature variance", untis="K$^{2}$")
 
-    print(tptpclim)
+    print(f"{umean.shape = }, {type(umean) =}")
+    print(f"{vptpclim.shape = }, {type(vptpclim) =}")
+    print(f"{upvpclim.shape = }, {type(upvpclim) =}")
+    print(f"{tptpclim.shape = }, {type(tptpclim) =}")
+
+    # at this point, resulting arrays must be 2D:
+    for i, v in enumerate([umean, vptpclim, upvpclim, tptpclim]):
+        if len(v.shape) != 2:
+            raise ValueError(f"Something is wrong with array {i} shape: {v.shape}")
     
     # TODO: add option to dump these to a file.
     # make the multi-panel figure
     #
     fig, ax = plt.subplots(figsize=(9,9), ncols=2, nrows=2, constrained_layout=True)
-    contour_zm(ax[0,0], umean, 2, -40, 40)
-    contour_zm(ax[0,1], tptpclim, 5, -40, 40)
-    contour_zm(ax[1,0], upvpclim, 4, -120,120)
-    contour_zm(ax[1,1], vptpclim, 1, -40,40)
+    contour_zm(ax[0,0], umean, 2, -40, 40, latname=latname, levname=levname)
+    contour_zm(ax[0,1], tptpclim, 5, -40, 40, latname=latname, levname=levname)
+    contour_zm(ax[1,0], upvpclim, 4, -120,120, latname=latname, levname=levname)
+    contour_zm(ax[1,1], vptpclim, 1, -40,40, latname=latname, levname=levname)
 
     if save_plot:
         ofil = Path.home() / "hs94_diag_plot.png"
