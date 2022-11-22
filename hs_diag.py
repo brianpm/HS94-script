@@ -146,15 +146,15 @@ if __name__ == "__main__":
     
     # Data loading and workflow (could make this CLI w/ argparse)
     
-    # hpath = Path("/glade/scratch/gdicker/val.FHS94.mpasa120.che.gnu/run/convertedOutputs_latlon")
-    # hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002*"))
+    hpath = Path("/glade/scratch/gdicker/val.FHS94.mpasa120.che.gnu/run/convertedOutputs_latlon")
+    hfils = sorted(hpath.glob("latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0002-01*"))
 
-    hfils = [Path("/Users/brianpm/Documents/model_output/mpasa_hs94/latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0001-01-01-00000.nc"),]
+    # hfils = [Path("/Users/brianpm/Documents/model_output/mpasa_hs94/latlon_val.FHS94.mpasa120.che.gnu.cam.h1.0001-01-01-00000.nc"),]
 
-    print(f"Found a total of {len(hfils)} files... BUT ONLY GOING TO LOAD THE FIRST ONE!")
     # note: using combine/concat_dim wouldn't usually be necessary if the time coordinate were correct.
-    # ds = xr.open_mfdataset(hfils[0], combine='nested', concat_dim=timname).load()
-    ds = xr.open_dataset(hfils[0]).load()
+    print(f"Found a total of {len(hfils)} files.")
+    ds = xr.open_mfdataset(hfils, combine='nested', concat_dim=timname)
+    # ds = xr.open_dataset(hfils[0]).load()
     print("ds loaded (probably via dask)")
 
     # If there's not a proper time coordinate, make one:
@@ -205,6 +205,15 @@ if __name__ == "__main__":
     upvpclim = calc_xpyp(U, V, lonname=lonname)
     tptpclim = calc_xpyp(T, lonname=lonname)
 
+    if hasattr(umean,"compute"):
+        umean = umean.compute()
+    if hasattr(vptpclim, "compute"):
+        vptpclim = vptpclim.compute()
+    if hasattr(upvpclim, "compute"):
+        upvpclim = upvpclim.compute()
+    if hasattr(tptpclim, "compute"):
+        tptpclim = tptpclim.compute()
+
     print(f"{umean.shape = }")
     print(f"{vptpclim.shape = }")
     print(f"{upvpclim.shape = }")
@@ -214,7 +223,7 @@ if __name__ == "__main__":
         interp_axis = umean.dims.index(levname)
         print(f"{interp_axis = }, nlev = {ds.dims[levname]}")  # have to go back to dataset, not use umean
         plev = construct_plev(ds.dims[levname])
-        pres = approx_pres(ds.rho.mean(dim=('time', lonname)), ds.T.mean(dim=('time',lonname)))
+        pres = approx_pres(ds.rho.mean(dim=('time', lonname)).compute(), ds.T.mean(dim=('time',lonname)).compute())
         tmpu, tmpvt, tmpuv, tmptt = log_interpolate_1d(plev, pres, umean, vptpclim, upvpclim, tptpclim, axis=interp_axis)
         umean = tmpu
         # tmp = log_interpolate_1d(plev, pres, vptpclim, dtype=vptpclim.dtype, axis=interp_axis).compute()
