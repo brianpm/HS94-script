@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
     umean = umean.assign_attrs(long_name="Mean zonal wind")
     vptpclim = vptpclim.assign_attrs(long_name="Northward eddy heat flux", units="K m s$^{-1}$")
-    upvpclim = vptpclim.assign_attrs(long_name="Northward eddy momentum flux", units="m$^2$ s$^{-2}$")
+    upvpclim = upvpclim.assign_attrs(long_name="Northward eddy momentum flux", units="m$^2$ s$^{-2}$")
     tptpclim = tptpclim.assign_attrs(long_name="Eddy temperature variance", untis="K$^{2}$")
 
     print(f"{umean.shape = }, {type(umean) =}")
